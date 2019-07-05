@@ -71,7 +71,7 @@ if emu.emulating() then
 
 				statusMessage("Connecting to server...")
 
-				mainDriver = GameDriver(spec, data.forceSend) -- Notice: This is a global, specs can use it
+				mainDriver = GameDriver(spec, data.forceSend, data) -- Notice: This is a global, specs can use it
 				IrcPipe(data, mainDriver):wake(server)
 			end
 

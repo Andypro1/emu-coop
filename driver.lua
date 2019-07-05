@@ -25,12 +25,20 @@ function memoryWrite(addr, value, size)
 end
 
 function recordChanged(record, value, previousValue, receiving)
+	if driverDebug then print("record " .. tostring(record) .. " value: " .. tostring(value) ..
+		" previousValue: " .. tostring(previousValue) .. " receiving: " .. tostring(receiving)) end
+
 	local allow = true
 
 	if type(record.kind) == "function" then
 		allow, value = record.kind(value, previousValue, receiving)
 	elseif record.kind == "high" then
 		allow = value > previousValue
+	elseif record.kind == "add" then
+		if previousValue == nil then previousValue = 0 end;
+		if record.toAdd == nil then record.toAdd = 0 end;
+
+		value = previousValue + record.toAdd;
 	elseif record.kind == "bitOr" then
 		local maskedValue         = value                        -- Backup value and previousValue
 		local maskedPreviousValue = previousValue
@@ -83,10 +91,11 @@ function performTest(record, valueOverride, sizeOverride)
 end
 
 class.GameDriver(Driver)
-function GameDriver:_init(spec, forceSend)
+function GameDriver:_init(spec, forceSend, ircInfo)
 	self.spec = spec
 	self.sleepQueue = {}
 	self.forceSend = forceSend
+	self.ircInfo = ircInfo;
 	self.didCache = false
 
 	-- Tracks memory locations until a settling period has elapsed, then allows further updates
@@ -132,27 +141,67 @@ function GameDriver:childTick()
 	end
 end
 
+
+-- function GameDriver:z1m1Action()
+-- 	if driverDebug then print("self check: " .. tostring(self)) end
+
+-- 	if self.spec.guid == "746cc905-ec55-418b-9098-efe01d573fd7" then
+-- 		--emu.message(tostring(z1m1Driver));
+-- 		if next(z1m1Driver.items) ~= nil then
+-- 			for k,v in pairs(z1m1Driver.items) do
+-- 				if driverDebug then print("Sending z1m1Driver item: " .. tostring(v)) end
+-- 				self:sendTable({addr=0x0000, value=v})
+
+-- 				z1m1Driver.items[k] = nil;
+-- 			end
+
+
+-- 			--self:caughtWrite(nil, nil, z1m1Driver.items, 1);
+-- 		end;
+-- 	end;
+-- end;
+
+
 function GameDriver:childWake()
 	self:sendTable({"hello", version=version.release, guid=self.spec.guid})
 
-	for k,v in pairs(self.spec.sync) do
-		local syncTable = self.spec.sync -- Assume sync table is not replaced at runtime
-		local baseAddr = k - (k%2)       -- 16-bit aligned equivalent of address
-		local size = v.size or 1
 
-		local function callback(a,b) -- I have no idea what "b" is but snes9x passes it
-			-- So, this is pretty awful: There is a bug in some versions of snes9x-rr where you if you have registered a registerwrite for an even and odd address,
-			-- SOMETIMES (not always) writing to the odd address will trigger the even address's callback instead. So when we get a callback we trigger the underlying
-			-- callback twice, once for each byte in the current word. This does mean caughtWrite() must tolerate spurious extra calls.
-			for offset=0,1 do
-				local checkAddr = baseAddr + offset
-				local record = syncTable[checkAddr]
-				if record then self:caughtWrite(checkAddr, b, record, size) end
+	--  NOTE:  This is where the spec loaded by the GameDriver captures
+	--  memory changes and takes action in :caughtWrite via the local callback() method above
+	-- if self.spec.guid == "746cc905-ec55-418b-9098-efe01d573fd7" then
+	-- 	--emu.message(tostring(z1m1Driver));
+	-- 	if next(z1m1Driver.items) ~= nil then
+	-- 		for k,v in pairs(z1m1Driver.items) do
+	-- 			if driverDebug then print("Sending z1m1Driver item: " .. tostring(v)) end
+	-- 			self:sendTable({addr=0x0001, value=v})
+
+	-- 			z1m1Driver.items[k] = nil;
+	-- 		end
+
+
+	-- 		--self:caughtWrite(nil, nil, z1m1Driver.items, 1);
+	-- 	end;
+	-- else
+	if self.spec.guid ~= "746cc905-ec55-418b-9098-efe01d573fd7" then
+		for k,v in pairs(self.spec.sync) do
+			local syncTable = self.spec.sync -- Assume sync table is not replaced at runtime
+			local baseAddr = k - (k%2)       -- 16-bit aligned equivalent of address
+			local size = v.size or 1
+
+			local function callback(a,b) -- I have no idea what "b" is but snes9x passes it
+				-- So, this is pretty awful: There is a bug in some versions of snes9x-rr where you if you have registered a registerwrite for an even and odd address,
+				-- SOMETIMES (not always) writing to the odd address will trigger the even address's callback instead. So when we get a callback we trigger the underlying
+				-- callback twice, once for each byte in the current word. This does mean caughtWrite() must tolerate spurious extra calls.
+				for offset=0,1 do
+					local checkAddr = baseAddr + offset
+					local record = syncTable[checkAddr]
+					if record then self:caughtWrite(checkAddr, b, record, size) end
+				end
 			end
-		end
 
-		memory.registerwrite (k, size, callback)
-	end
+			memory.registerwrite (k, size, callback)
+		end
+	end;
 end
 
 function GameDriver:isRunning()
@@ -255,6 +304,24 @@ function GameDriver:handleTable(t)
 				record.cache = value
 				memoryWrite(addr, value, record.size)
 			end
+		elseif addr == 0xffff then --magic value address for z1m1 item handling
+			local itemValue = t.value;
+			local record = self.spec.gameItems[itemValue];
+			local allow = true;
+			local previousValue = memoryRead(record.addr, 1);
+
+			if driverDebug then print("Before recordChanged itemValue: " .. tostring(itemValue)) end
+
+
+			allow, itemValue = recordChanged(record, record.value, previousValue, true);
+			
+			if allow then
+				if driverDebug then print("record.addr " .. tostring(record.addr) .. " itemValue: " .. tostring(itemValue)) end
+
+				memoryWrite(record.addr, itemValue, 1);
+				message(string.format(self.ircInfo.partner .. " procured %s from %s",
+					record.desc, "Hyrule"));
+			end;
 		else
 			if driverDebug then print("Unknown memory address was " .. tostring(addr)) end
 			message("Partner changed unknown memory address...? Uh oh")

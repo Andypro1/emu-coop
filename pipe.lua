@@ -1,3 +1,5 @@
+z1m1Driver = require "z1m1/diagnostics"
+
 -- NETWORKING
 
 -- A Pipe class is responsible for, somehow or other, connecting to the internet and funnelling data between driver objects on different machines.
@@ -21,6 +23,25 @@ function Pipe:wake(server)
 
 	gui.register(function()
 		if not self.dead then self:tick() end
+
+		--  TODO: change to spec flag type to allow injection of custom routines
+		if mainDriver.spec.guid == "746cc905-ec55-418b-9098-efe01d573fd7" then
+			z1m1Driver.z1m1();
+
+			if next(z1m1Driver.items) ~= nil then
+				for k,v in pairs(z1m1Driver.items) do
+					if driverDebug then print("Sending z1m1Driver item: " .. tostring(v)) end
+
+					--  TODO: no "magic address value" hacks; change the driver or make a new method
+					mainDriver:sendTable({addr = 0xffff, value = v})
+	
+					z1m1Driver.items[k] = nil;
+				end
+		
+				--self:caughtWrite(nil, nil, z1m1Driver.items, 1);
+			end;
+		end;
+
 		printMessage()
 	end)
 end
@@ -235,3 +256,4 @@ function Driver:childWake() end
 function Driver:childTick() end
 function Driver:handleTable(t) end
 function Driver:handleFailure(s, err) end
+-- function Driver:z1m1Action() end
