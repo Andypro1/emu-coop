@@ -1,4 +1,5 @@
-z1m1Driver = require "z1m1/diagnostics"
+z1m1Driver  = require "z1m1/diagnostics"
+z1m1Message = require "z1m1/messages"
 
 -- NETWORKING
 
@@ -26,19 +27,62 @@ function Pipe:wake(server)
 
 		--  TODO: change to spec flag type to allow injection of custom routines
 		if mainDriver.spec.guid == "746cc905-ec55-418b-9098-efe01d573fd7" then
+			local whichGame = z1m1Driver.whichGame();
+			local whichSendAddr = nil;
+
+			if whichGame == 0 then whichSendAddr = 0xfffe
+			elseif whichGame == 1 then whichSendAddr = 0xffff end;
+
 			z1m1Driver.z1m1();
 
+			--  Got items to sync to other players
 			if next(z1m1Driver.items) ~= nil then
 				for k,v in pairs(z1m1Driver.items) do
-					if driverDebug then print("Sending z1m1Driver item: " .. tostring(v)) end
+					if (v ~= 0) and (v <= 0x5d) then
+						--  no... always send items regardless of game.  each client will handle appropriately.
+						if driverDebug then print("Sending z1m1Driver item: " .. tostring(v)) end
 
-					--  TODO: no "magic address value" hacks; change the driver or make a new method
-					mainDriver:sendTable({addr = 0xffff, value = v})
-	
+						--  Display user message
+						z1m1Message.print("I", mainDriver.spec.gameItems[v].desc, whichGame);
+						--message("I got " .. mainDriver.spec.gameItems[v].desc);
+						
+						--  If this is a cross game item, we need to add it to our own
+						--  game cache for later action
+						if mainDriver.spec.gameItems[v].game ~= whichGame then
+							if whichGame == 0 then --in Hyrule
+								if driverDebug then print("Caching Zebes item I got: " .. tostring(v)) end
+								table.insert(z1m1Driver.MetroidCache, v);
+							elseif whichGame == 1 then --in Zebes
+								if driverDebug then print("Caching Hyrule item I got: " .. tostring(v)) end
+								table.insert(z1m1Driver.ZeldaCache, v);
+							end;
+						end;
+						
+						if driverDebug then print(tostring(z1m1Driver.MetroidCache)) end
+						if driverDebug then print(tostring(z1m1Driver.ZeldaCache)) end
+
+						--  TODO: no "magic address value" hacks; change the driver or make a new method
+						mainDriver:sendTable({addr = whichSendAddr, value = v});
+					end;
+
 					z1m1Driver.items[k] = nil;
 				end
-		
-				--self:caughtWrite(nil, nil, z1m1Driver.items, 1);
+			end;
+
+			local thisGameCache = 0;
+
+			if whichGame == 0 then thisGameCache = z1m1Driver.ZeldaCache
+			elseif whichGame == 1 then thisGameCache = z1m1Driver.MetroidCache end;
+
+			--  Have unprocessed items in my cache for this game mode; process them
+			if next(thisGameCache) ~= nil then
+				for k,v in pairs(thisGameCache) do
+					if driverDebug then print("Unrolling cache; item: " .. tostring(k) .. " " .. tostring(v)) end
+					
+					mainDriver:handleTable({addr = whichSendAddr, value = v}, true);
+
+					thisGameCache[k] = nil;
+				end
 			end;
 		end;
 

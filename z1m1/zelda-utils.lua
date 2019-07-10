@@ -298,7 +298,7 @@ local function process_playing(itemsToSync)
     mode1 = mi.mode1;
     mode2 = mi.mode2;
 
-    -- gui.text(5, 10, "mode1: " .. mode1 .. " mode2: " .. mode2);
+    --gui.text(20, 20, "mode1: " .. mode1 .. " mode2: " .. mode2);
 
     if(mode1 == 0x01 and mode2 == 0x05) then
         cur_map_coord = memory.readbyte(0x00EB)
@@ -323,10 +323,8 @@ local function process_playing(itemsToSync)
         cur_loc_type = old_loc_type;
         cur_triforce = true;
     else
-        --  Add a catchall for transitions (ap added)
-        cur_map_coord = old_map_coord;
-        cur_loc_type = old_loc_type;
-        cur_triforce = false;
+		-- Instead of analyzing an invalid state, just return
+		return;
     end;
 
 	if (cur_level == 0) then
@@ -401,7 +399,15 @@ local function process_playing(itemsToSync)
     if (old_map_coord == cur_map_coord and old_loc_type == cur_loc_type) then
 		local item_disappeared = cur_item_vis == false and old_item_vis == true
 
-		if (item_disappeared or (cur_item_y == 0xFF and old_item_y < 0xFF) or (cur_triforce == true and old_triforce == false)) then
+		-- local cur_item_num = memory.readbyte(0xAB)
+		-- local cur_item_vis = memory.readbyte(0xBF) == 0x00
+		-- local cur_item_x   = memory.readbyte(0x83)
+		-- local cur_item_y   = memory.readbyte(0x97)
+		-- gui.text(10, 10, string.format("0x%x", memory.readbyte(0xAB)) .. " " .. string.format("0x%x", memory.readbyte(0xBF)) .. " " .. string.format("0x%x", memory.readbyte(0x83)) .. " " .. string.format("0x%x", memory.readbyte(0x97)));
+
+		if ((item_disappeared or (cur_item_y == 0xFF and old_item_y < 0xFF) or
+			(cur_triforce == true and old_triforce == false))
+			and cur_item_num < 0x5d) then
             --emu.message("Got room item: " .. string.format("0x%x", cur_item_num) .. " " .. string.format("%s", tostring(item_disappeared)) .. " " .. cur_item_y .. " " .. old_item_y);
 			--emu.message("Got room item: " .. string.format("0x%x", cur_item_num));
 			item_got = cur_item_num
@@ -419,7 +425,7 @@ local function process_playing(itemsToSync)
 
 	--item obtained?
 	if (item_got ~= nil) then
-		emu.message("I got " .. itemTable.items[item_got].desc);
+		--emu.message("I got " .. itemTable.items[item_got].desc);
 		table.insert(itemsToSync, item_got);
 		--emu.message(tostring(itemsToSync));
         --emu.message("Got item " .. string.format("0x%x", item_got));

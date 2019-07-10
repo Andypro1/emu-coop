@@ -21,21 +21,21 @@ local spec = {
 	sync = {}
 };
 
---  Settle "engine" to prevent flood timeouts on those items which can change rapidly
-spec.sync[0x0015] = {timer=1, cond={"modulo", mod = 30}}
+-- --  Settle "engine" to prevent flood timeouts on those items which can change rapidly
+-- spec.sync[0x0015] = {timer=1, cond={"modulo", mod = 30}}
 
-spec.sync[0x066D] = {settle=1} -- Rupees
-spec.sync[0x066E] = {name="a key"}  -- Keys
+-- spec.sync[0x066D] = {settle=1} -- Rupees
+-- spec.sync[0x066E] = {name="a key"}  -- Keys
 
---  Bombs
-spec.sync[0x0658] = {}
-spec.sync[0x067C] = {name="Bomb upgrade", kind="high"}
+-- --  Bombs
+-- spec.sync[0x0658] = {}
+-- spec.sync[0x067C] = {name="Bomb upgrade", kind="high"}
 
---  Hearts
-spec.sync[0x0670] = {settle=1}  --  Fractional health
-spec.sync[0x066F] = {}  --  Int health and heart containers
-spec.sync[0x0012] = {cond={"test", gte = 0x11, lte = 0x11}, kind="passthrough"}  --  death
+-- --  Hearts
+-- spec.sync[0x0670] = {settle=1}  --  Fractional health
+-- spec.sync[0x066F] = {}  --  Int health and heart containers
+-- spec.sync[0x0012] = {cond={"test", gte = 0x11, lte = 0x11}, kind="passthrough"}  --  death
 
-spec.sync[0x6804] = {}  -- tunic color (partner can immediately tell ring has been acquired)
+-- spec.sync[0x6804] = {}  -- tunic color (partner can immediately tell ring has been acquired)
 
 return spec

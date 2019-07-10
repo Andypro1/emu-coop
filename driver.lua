@@ -1,3 +1,6 @@
+local z1m1Driver  = require "z1m1/diagnostics"
+local z1m1Message = require "z1m1/messages"
+
 -- ACTUAL WORK HAPPENS HERE
 
 function memoryRead(addr, size)
@@ -39,6 +42,20 @@ function recordChanged(record, value, previousValue, receiving)
 		if record.toAdd == nil then record.toAdd = 0 end;
 
 		value = previousValue + record.toAdd;
+	-- elseif record.kind == "high-nybble-add" then
+	-- 	if previousValue == nil then previousValue = 0 end;
+	-- 	if record.toAdd == nil then record.toAdd = 0 end;
+
+	-- 	local prevHighNybble = bit.rshift(AND(previousValue, 0xf0), 4);
+
+	-- 	value = bit.lshift(AND(prevHighNybble + record.toAdd, 0x0f), 4) + AND(value, 0x0f);
+	elseif record.kind == "low-nybble-add" then
+		if previousValue == nil then previousValue = 0 end;
+		if record.toAdd == nil then record.toAdd = 0 end;
+
+		local prevLowNybble = AND(previousValue, 0x0f);
+
+		value = AND(prevLowNybble + record.toAdd, 0x0f) + AND(value, 0xf0);
 	elseif record.kind == "bitOr" then
 		local maskedValue         = value                        -- Backup value and previousValue
 		local maskedPreviousValue = previousValue
@@ -249,7 +266,7 @@ function GameDriver:caughtWrite(addr, arg2, record, size)
 	end
 end
 
-function GameDriver:handleTable(t)
+function GameDriver:handleTable(t, isUnrolling)
 	if t[1] == "hello" then
 		if t.guid ~= self.spec.guid then
 			self.pipe:abort("Partner has an incompatible .lua file for this game.")
@@ -304,23 +321,53 @@ function GameDriver:handleTable(t)
 				record.cache = value
 				memoryWrite(addr, value, record.size)
 			end
-		elseif addr == 0xffff then --magic value address for z1m1 item handling
+		elseif (addr == 0xffff) or (addr == 0xfffe) then --magic value addresses for z1m1 item handling
 			local itemValue = t.value;
 			local record = self.spec.gameItems[itemValue];
 			local allow = true;
 			local previousValue = memoryRead(record.addr, 1);
 
-			if driverDebug then print("Before recordChanged itemValue: " .. tostring(itemValue)) end
+			--  Short circuit the wonky erroneous bomb pack when entering Zelda for now
+			if itemValue == 0 then
+				return;
+			end;
 
+			--  TODO: Refactor magic boolean param
+			if isUnrolling == nil then
+				-- message(string.format(self.ircInfo.partner .. " procured %s from %s",
+				-- 	record.desc, "Hyrule"));
+				local location = 0;
+
+				if addr == 0xfffe then location = 0
+				elseif addr == 0xffff then location = 1 end;
+
+				z1m1Message.print(self.ircInfo.partner, record.desc, location);
+			end;
+
+			--  Check if item belongs to the other game mode
+			if record.game ~= z1m1Driver.whichGame() then
+				--  Add to appropriate game cache and exit
+				if z1m1Driver.whichGame() == 0 then --in Hyrule
+					if driverDebug then print("Caching Zebes item: " .. tostring(itemValue)) end
+					table.insert(z1m1Driver.MetroidCache, itemValue);
+				elseif z1m1Driver.whichGame() == 1 then --in Zebes
+					if driverDebug then print("Caching Hyrule item: " .. tostring(itemValue)) end
+					table.insert(z1m1Driver.ZeldaCache, itemValue);
+				end;
+
+				return;
+			end;
 
 			allow, itemValue = recordChanged(record, record.value, previousValue, true);
 			
 			if allow then
 				if driverDebug then print("record.addr " .. tostring(record.addr) .. " itemValue: " .. tostring(itemValue)) end
 
-				memoryWrite(record.addr, itemValue, 1);
-				message(string.format(self.ircInfo.partner .. " procured %s from %s",
-					record.desc, "Hyrule"));
+				if itemValue ~= nil then
+					memoryWrite(record.addr, itemValue);
+				else
+					if driverDebug then print("itemValue not defined in item-table.") end;
+				end;
 			end;
 		else
 			if driverDebug then print("Unknown memory address was " .. tostring(addr)) end
