@@ -21,21 +21,31 @@ local spec = {
 	sync = {}
 };
 
--- --  Settle "engine" to prevent flood timeouts on those items which can change rapidly
--- spec.sync[0x0015] = {timer=1, cond={"modulo", mod = 30}}
+for i = 0x067f, 0x06fe do
+	spec.sync[i] = {kind = "bitOr", mask = OR(0x80,0x10), gameMode = 0};
+end
 
--- spec.sync[0x066D] = {settle=1} -- Rupees
--- spec.sync[0x066E] = {name="a key"}  -- Keys
+-- dungeon map data is between 0x6ff and 0x7fe (top left to bottom right, all
+-- the dungeons are in a single 2d array with each other)
+-- each tile has the following attributes that could be synced:
+-- 0x80 some enemies killed in room
+-- 0x40 all enemies killed in room
+-- 0x20 room visited (shows up on map)
+-- 0x10 item collected
+-- 0x08 top key door unlocked
+-- 0x04 bottom key door unlocked
+-- 0x02 left key door unlocked
+-- 0x01 right key door unlocked
+for i = 0x06ff, 0x07fe do
+	spec.sync[i] = {kind="bitOr", mask=0x3f, gameMode = 0}; -- all but enemy kills? Play around with different masks maybe.
+end
 
--- --  Bombs
--- spec.sync[0x0658] = {}
--- spec.sync[0x067C] = {name="Bomb upgrade", kind="high"}
+for i = 0x6886, 0x68fc do
+	spec.sync[i] = { kind="notzero", gameMode = 1};
+end;
 
--- --  Hearts
--- spec.sync[0x0670] = {settle=1}  --  Fractional health
--- spec.sync[0x066F] = {}  --  Int health and heart containers
--- spec.sync[0x0012] = {cond={"test", gte = 0x11, lte = 0x11}, kind="passthrough"}  --  death
+spec.sync[0x6987] = { kind="notzero", gameMode = 1};  --  Kraid/Ridley present byte
 
 -- spec.sync[0x6804] = {}  -- tunic color (partner can immediately tell ring has been acquired)
 
-return spec
+return spec;

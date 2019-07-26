@@ -6,7 +6,6 @@ local messageVerbs = {
     " got hold of ",
     " gained ",
     " earned ",
-    " found ",
     " obtained ",
     " picked up ",
     " collected ",

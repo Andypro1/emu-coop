@@ -4,6 +4,11 @@ local samus = {}
 local map = {}
 local curItem = nil;
 
+local item_y = nil;
+local item_x = nil;
+local handled_pickup = false;
+local bossJustKilled = false;
+
 local areas = {}
 areas[0] = "B"
 areas[1] = "N"
@@ -63,31 +68,17 @@ local function read_samus_state()
 	return samus
 end
 
-local function analyze_room(area, room_y, room_x)
-	local room_key = area .. string.format("%02X", room_y) .. string.format("%02X", room_x)
-
-    local room_info = { item, item_x, item_y };
-
-    if (room_info.item == nil) then
-        room_info.item = memory.readbyte(0x0748);
-    end
-
-	if (room_info ~= nil) then
-		if (room_info.item_y == nil) then
-			room_info.item_y = memory.readbyte(0x0749)
-		end
-
-		if (room_info.item_x == nil) then
-			room_info.item_x = memory.readbyte(0x074A)
-		end
-
-		--set_room_item(room_y, room_x, room_info.item, room_info.item_y, room_info.item_x)
-		--emu.message("room item found:" .. room_info.item);
-		if(room_info.item ~= 0xff) then
-			curItem = room_info.item;
-		end;
-	end
-end
+-- local function analyze_room(area, room_y, room_x)
+-- 	if (memory.readbyte(0x0748) ~= 0xff) and (memory.readbyte(0x074B) == samus.table) then
+-- 		message("found item 1.");
+-- 		curItem = memory.readbyte(0x0748);
+-- 	elseif (memory.readbyte(0x0750) ~= 0xff) and (memory.readbyte(0x0753) == samus.table) then
+-- 		message("found item 2.");
+-- 		curItem = memory.readbyte(0x0750);
+-- 	else
+-- 		curItem = nil;
+-- 	end;
+-- end;
 
 local function process_game(itemsToSync)
 	local load_room_y  = memory.readbyte(0x004F)
@@ -100,69 +91,28 @@ local function process_game(itemsToSync)
 
 	-- 0x08 -> starting / fading in 
 	if (mode2 == 0x08) then
-
 		last_samus_room_x = nil
 		last_samus_room_y = nil
 
-		--restore_state_vars()
-
-		--shortcut fade-in?
-		local joystate = joypad.read(1)
-		if (joystate.A == true or joystate.B == true) then
-			memory.writebyte(0x002C, 0x01)
-		end
-
-		-- ensure no items are on the screen
-		memory.writebyte(0x0748, 0xFF)
-		memory.writebyte(0x0750, 0xFF)
-
 		just_spawned = true
-
 	end
 
 	-- 0x03 -> normal play mode
 	if (mode2 == 0x03) then
-
 		local new_room_loaded = false
+		handled_pickup = false;  --  Set this to false in normal gameplay to prepare
+								 --  for the next item pickup state
 		local area_num = memory.readbyte(0x0074) % 0x10
 		local exit_room = false
 		local hide_items = false
 
-		--restore_state_vars()
 
 		if (just_spawned) then
-			--apply_palette()
 			just_spawned = false
 		end
  
 		-- new room loaded?
 		if (load_room_x ~= last_room_x or load_room_y ~= last_room_y) then
-
-			-- -- removes drop limits for the room
-			-- memory.writebyte(0x93, 0xFF)
-			-- memory.writebyte(0x94, 0xFF)
-			-- memory.writebyte(0x95, 0x00)
-			-- memory.writebyte(0x96, 0x00)
-
-
-			-- if (load_room_y == 0x1D) then
-
-			-- 	-- this row contains kraid and ridley
-
-			-- 	if (flags.killed_kraid == true) then
-			-- 		memory.writebyte(0x687B, 0x01)
-			-- 	else
-			-- 		memory.writebyte(0x687B, 0x00)
-			-- 	end
-
-			-- 	if (flags.killed_ridley == true) then
-			-- 		memory.writebyte(0x687C, 0x01)
-			-- 	else
-			-- 		memory.writebyte(0x687C, 0x00)
-			-- 	end
-
-			-- end
-
 			prev_room_x = last_room_x
 			prev_room_y = last_room_y
 
@@ -170,139 +120,123 @@ local function process_game(itemsToSync)
 			last_room_y = load_room_y
 
 			new_room_loaded = true
-
 		end
 
 		-- samus moved to a new room?
 		if (samus.room_y ~= last_samus_room_y or samus.room_x ~= last_samus_room_x) then
+			-- local index = 32*samus.room_y+samus.room_x
+			-- local n = map[ index ]
 
-			local index = 32*samus.room_y+samus.room_x
+			-- --8x = open on left
+			-- --4x = open on right
+			-- --2x = open on top
+			-- --1x = open on bottom
 
-			local n = map[ index ]
+			-- if (n == nil) then
+			-- 	n = area_num
+			-- end
 
-			--8x = open on left
-			--4x = open on right
-			--2x = open on top
-			--1x = open on bottom
+			-- if (last_samus_room_x ~= nil and last_samus_room_y ~= nil) then
+			-- 	if (samus.room_x > last_samus_room_x) then n = OR(n, 0x80) end
+			-- 	if (samus.room_x < last_samus_room_x) then n = OR(n, 0x40) end
+			-- 	if (samus.room_y > last_samus_room_y) then n = OR(n, 0x20) end
+			-- 	if (samus.room_y < last_samus_room_y) then n = OR(n, 0x10) end
+			-- end
 
-			if (n == nil) then
-				n = area_num
-			end
-
-			if (last_samus_room_x ~= nil and last_samus_room_y ~= nil) then
-				if (samus.room_x > last_samus_room_x) then n = OR(n, 0x80) end
-				if (samus.room_x < last_samus_room_x) then n = OR(n, 0x40) end
-				if (samus.room_y > last_samus_room_y) then n = OR(n, 0x20) end
-				if (samus.room_y < last_samus_room_y) then n = OR(n, 0x10) end
-			end
-
-			-- update map
-			map[ index ] = n
+			-- -- update map
+			-- map[ index ] = n
 
 			last_samus_room_x = samus.room_x
 			last_samus_room_y = samus.room_y
-
 		end
-
 
 		-- need to analyze the room (for item slots)?
-
 		if (new_room_loaded) then
+			bossJustKilled = false;
 
-			handled_pickup = false
-
-			analyze_room(samus.area, load_room_y, load_room_x)
+			--analyze_room(samus.area, load_room_y, load_room_x)
 
 			-- save internal game state
-
 			game_state = read_game_state()
-
 		end
 
-		-- are we in a door
-		if (door_status > 0x00) then
+		-- -- are we in a door
+		-- if (door_status > 0x00) then
+		-- 	-- in right door
+		-- 	if (door_status == 0x01 and memory.readbyte(0xFD) < 128) then
+		-- 		hide_items = true
+		-- 	end
 
-			-- in right door
-			if (door_status == 0x01 and memory.readbyte(0xFD) < 128) then
-				hide_items = true
-			end
-
-			-- in left door
-			if (door_status == 0x02 and memory.readbyte(0xFD) > 128) then
-				hide_items = true
-			end
-
-		end
-
-		-- hiding items during part of door transition because of item weirdness
-
-		-- if (hide_items == true) then
-		-- 	memory.writebyte(0x0748, 0xFF)
-		-- 	memory.writebyte(0x0750, 0xFF)
+		-- 	-- in left door
+		-- 	if (door_status == 0x02 and memory.readbyte(0xFD) > 128) then
+		-- 		hide_items = true
+		-- 	end
 		-- end
+
+		if (samus.room_y == 0x1D) and (bossJustKilled == false) then
+			if (area_num == 2 and memory.readbyte(0x6B02) == 0x08) then
+				--  Kraid's room
+
+				if (AND(memory.readbyte(0x687B), 0x0f) > 0x00) then --Kraid just killed
+					if driverDebug then print("Bye Kraid.") end
+
+					--  Boss room missile pickup
+					table.insert(itemsToSync, 0x5d);
+					bossJustKilled = true;
+				end;
+			elseif (area_num == 4 and memory.readbyte(0x6B02) == 0x09) then
+				--  Ridley's room
+
+				if (AND(memory.readbyte(0x687C), 0x0f) > 0x00) then --Ridley just killed
+					if driverDebug then print("Bye Ridley.") end
+					
+					--  Boss room missile pickup
+					table.insert(itemsToSync, 0x5e);
+					bossJustKilled = true;
+				end;
+			end;
+		end;
 
 		-- get coords of item near samus
 		if (memory.readbyte(0x0748) ~= 0xFF and memory.readbyte(0x074B) == samus.table) then
-			item_y = memory.readbyte(0x0749)
-			item_x = memory.readbyte(0x074A)
-
+			item_y = memory.readbyte(0x0749);
+			item_x = memory.readbyte(0x074A);
+			curItem = memory.readbyte(0x0748);
 		elseif (memory.readbyte(0x0750) ~= 0xFF and memory.readbyte(0x0753) == samus.table) then
-			item_y = memory.readbyte(0x0751)
-			item_x = memory.readbyte(0x0752)
-
+			item_y = memory.readbyte(0x0751);
+			item_x = memory.readbyte(0x0752);
+			curItem = memory.readbyte(0x0750);
+		else
+			item_y = 0;
+			item_x = 0;
+			curItem = nil;
 		end
+
+		--gui.text(5, 20, tostring(curItem) .. " " .. item_y .. "," .. item_x);
 	end
 
 	-- 0x09 -> picking up item
 	if (mode2 == 0x09 and samus.mode < 0x07) then
-		if (handled_pickup == false) then
-			local room_key = samus.area .. string.format("%02X", samus.room_y) .. string.format("%02X", samus.room_x)
+		if (item_x ~= nil) and (item_y ~= nil) and (curItem ~= nil) and (handled_pickup == false) then
+			local dist_y = math.abs(samus.ypos - item_y)
+			local dist_x = math.abs(samus.xpos - item_x)
 
-			--local room = config.rooms[room_key]
-            local room = { item, item_x, item_y };
+			--if driverDebug then print(dist_y .. ", " .. dist_x) end
 
-            -- if (room.item == nil) then
-            --     room.item = memory.readbyte(0x0748);
-            -- end
+			-- are we actually close to an item?
+			if (dist_y < 24 and dist_x < 16) then
+				table.insert(itemsToSync, curItem);
 
-			--if (room ~= nil) then
-
-				local dist_y = math.abs(samus.ypos - item_y)
-				local dist_x = math.abs(samus.xpos - item_x)
-
-				-- are we actually close to an item?
-				if (dist_y < 24 and dist_x < 16) then
-
-					-- tell core we got the item
-					--host.global_item_obtained(room.item)
-					--emu.message(string.format("I procured %s from %s", itemTable.items[curItem], "Zebes"));
-					--emu.message("I got " .. itemTable.items[curItem].desc);
-					table.insert(itemsToSync, curItem);
-
-					should_restore_inventory = true
-
-					handled_pickup = true
-
-					-- remove item from screen
-					--room_client.set_no_room_item(samus.room_y, samus.room_x)
-
-					-- clear dots on the map
-					--hud.set_item_dot(samus.room_y, samus.room_x, false)
-					--hud.set_goal_dot(samus.room_y, samus.room_x, false)
-
-					--apply_palette()
-
-				end
-
-			--end
-
-		end
+				should_restore_inventory = true
+				handled_pickup           = true
+			end;
+		end;
 	end
 
-	counted_death = false
+	counted_death = false;
 end
 
 
 return {
 	process_game = process_game
-}
+};

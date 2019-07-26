@@ -1,6 +1,9 @@
 z1m1Driver  = require "z1m1/diagnostics"
 z1m1Message = require "z1m1/messages"
 
+local UNROLL_DELAY = 20;  --  Number of frames to wait until processing a cross-game cache
+local PORTAL_SYNC_DELAY = 60;
+
 -- NETWORKING
 
 -- A Pipe class is responsible for, somehow or other, connecting to the internet and funnelling data between driver objects on different machines.
@@ -35,34 +38,37 @@ function Pipe:wake(server)
 
 			z1m1Driver.z1m1();
 
+			--  Lock spec syncs within one second of portaling between games to avoid the ram swap flood
+			--  Initiate this timer if the game mode has just switched
+			if whichGame ~= z1m1Driver.whichGame() then
+				PORTAL_SYNC_DELAY = 60;
+				z1m1Driver.DisableSyncPortal(true);
+			end;
+
+			if z1m1Driver.IsSyncPortalDisabled() == true then
+				PORTAL_SYNC_DELAY = PORTAL_SYNC_DELAY - 1;
+
+				if PORTAL_SYNC_DELAY <= 0 then
+					PORTAL_SYNC_DELAY = 60;
+					z1m1Driver.DisableSyncPortal(false);
+				end;
+			end;
+
 			--  Got items to sync to other players
 			if next(z1m1Driver.items) ~= nil then
 				for k,v in pairs(z1m1Driver.items) do
-					if (v ~= 0) and (v <= 0x5d) then
+					if (v ~= 0) and (v < 0x60) and mainDriver.spec.gameItems[v] ~= nil then
 						--  no... always send items regardless of game.  each client will handle appropriately.
-						if driverDebug then print("Sending z1m1Driver item: " .. tostring(v)) end
+						if driverDebug then print("Sent item: " .. string.format("0x%02X", v)) end
 
 						--  Display user message
 						z1m1Message.print("I", mainDriver.spec.gameItems[v].desc, whichGame);
-						--message("I got " .. mainDriver.spec.gameItems[v].desc);
 						
-						--  If this is a cross game item, we need to add it to our own
-						--  game cache for later action
-						if mainDriver.spec.gameItems[v].game ~= whichGame then
-							if whichGame == 0 then --in Hyrule
-								if driverDebug then print("Caching Zebes item I got: " .. tostring(v)) end
-								table.insert(z1m1Driver.MetroidCache, v);
-							elseif whichGame == 1 then --in Zebes
-								if driverDebug then print("Caching Hyrule item I got: " .. tostring(v)) end
-								table.insert(z1m1Driver.ZeldaCache, v);
-							end;
-						end;
-						
-						if driverDebug then print(tostring(z1m1Driver.MetroidCache)) end
-						if driverDebug then print(tostring(z1m1Driver.ZeldaCache)) end
+						if driverDebug then print(tostring(z1m1Driver.items) .. " " .. tostring(z1m1Driver.MetroidCache) .. " " .. tostring(z1m1Driver.ZeldaCache)) end;
 
 						--  TODO: no "magic address value" hacks; change the driver or make a new method
-						mainDriver:sendTable({addr = whichSendAddr, value = v});
+						local curValue = memoryRead(mainDriver.spec.gameItems[v].addr);
+						mainDriver:sendTable({addr = whichSendAddr, itemid = v, value = curValue});
 					end;
 
 					z1m1Driver.items[k] = nil;
@@ -70,23 +76,62 @@ function Pipe:wake(server)
 			end;
 
 			local thisGameCache = 0;
+			local thisGameProgressCache = 0;
 
-			if whichGame == 0 then thisGameCache = z1m1Driver.ZeldaCache
-			elseif whichGame == 1 then thisGameCache = z1m1Driver.MetroidCache end;
+			if whichGame == 0 then
+				thisGameCache = z1m1Driver.ZeldaCache;
+				thisGameProgressCache = z1m1Driver.HyruleProgress;
+			elseif whichGame == 1 then
+				thisGameCache = z1m1Driver.MetroidCache
+				thisGameProgressCache = z1m1Driver.ZebesProgress;
+			end;
 
 			--  Have unprocessed items in my cache for this game mode; process them
 			if next(thisGameCache) ~= nil then
+				UNROLL_DELAY = UNROLL_DELAY - 1;
+			end;
+
+			if UNROLL_DELAY <= 0 then
+				if driverDebug then print("Unrolling cache: " .. tostring(thisGameCache)) end;
+
 				for k,v in pairs(thisGameCache) do
-					if driverDebug then print("Unrolling cache; item: " .. tostring(k) .. " " .. tostring(v)) end
-					
-					mainDriver:handleTable({addr = whichSendAddr, value = v}, true);
+					local curValue = memoryRead(mainDriver.spec.gameItems[v].addr);
+					mainDriver:handleTable({addr = whichSendAddr, itemid = v, value = curValue}, true);
 
 					thisGameCache[k] = nil;
 				end
+
+				--  Reset the file cache
+				if whichGame == 0 then
+					pretty.dump(z1m1Driver.ZeldaCache, "z1m1." .. mainDriver.ircInfo.nick .. ".Zelda.cache");
+				elseif whichGame == 1 then
+					pretty.dump(z1m1Driver.MetroidCache, "z1m1." .. mainDriver.ircInfo.nick .. ".Metroid.cache");
+				end;
+
+				UNROLL_DELAY = 20;
+			end;
+
+			if (next(thisGameProgressCache) ~= nil) and (z1m1Driver.IsSyncPortalDisabled() == false) then
+				if driverDebug then print("Unrolling progress: " .. tostring(thisGameProgressCache)) end;
+
+				for k,v in pairs(thisGameProgressCache) do
+					if (v.addr ~= nil) and (v.value ~= nil) then
+						mainDriver:handleTable({addr = v.addr, value = v.value}, true);
+					end;
+
+					thisGameProgressCache[k] = nil;
+				end
+
+				--  Reset the file cache
+				if whichGame == 0 then
+					pretty.dump(z1m1Driver.HyruleProgress, "z1m1." .. mainDriver.ircInfo.nick .. ".HyruleProgress.cache");
+				elseif whichGame == 1 then
+					pretty.dump(z1m1Driver.ZebesProgress, "z1m1." .. mainDriver.ircInfo.nick .. ".ZebesProgress.cache");
+				end;
 			end;
 		end;
 
-		printMessage()
+		printMessage();
 	end)
 end
 
@@ -229,7 +274,7 @@ function IrcPipe:handle(s)
 								else
 									if pipeDebug then print("Handshake finished") end
 									statusMessage(nil)
-									message("Connected to partner")
+									message("Connected to partner.")
 
 									self.state = IrcState.piping
 									self.driver:wake(self)

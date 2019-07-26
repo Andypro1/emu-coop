@@ -407,7 +407,7 @@ local function process_playing(itemsToSync)
 
 		if ((item_disappeared or (cur_item_y == 0xFF and old_item_y < 0xFF) or
 			(cur_triforce == true and old_triforce == false))
-			and cur_item_num < 0x5d) then
+			and cur_item_num < 0x60) then
             --emu.message("Got room item: " .. string.format("0x%x", cur_item_num) .. " " .. string.format("%s", tostring(item_disappeared)) .. " " .. cur_item_y .. " " .. old_item_y);
 			--emu.message("Got room item: " .. string.format("0x%x", cur_item_num));
 			item_got = cur_item_num

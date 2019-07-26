@@ -1,10 +1,14 @@
 local metroidutils = require "z1m1/metroid-utils"
 local zeldautils   = require "z1m1/zelda-utils"
 
-local itemsToSync  = {};
-local gameMode     = 0;
-local ZeldaCache   = {};
-local MetroidCache = {};
+local itemsToSync    = {};
+local gameMode       = 0;
+local ZeldaCache     = {};
+local HyruleProgress = {};
+local MetroidCache   = {};
+local ZebesProgress  = {};
+
+local syncPortalDisabled = false;
 
 local function inTable(tbl, item)
     for key, value in pairs(tbl) do
@@ -46,6 +50,14 @@ local function whichGame()
     return gameMode;
 end;
 
+local function IsSyncPortalDisabled()
+    return syncPortalDisabled;
+end;
+
+local function DisableSyncPortal(isdisabled)
+    syncPortalDisabled = isdisabled;
+end;
+
 local function z1m1()
     --  Game detection
     local gameCheck = memory.readbyte(0xe440);
@@ -63,7 +75,12 @@ local function z1m1()
         zeldautils.process_game(itemsToSync);
     elseif(gameCheck == 0x03) then -- Metroid
         gameMode = 1;
-        -- gui.text(5, 224, "Game: " .. "Metroid", null, null, "bottomright")
+        -- gui.text(1, 204, "I1: " .. string.format("x%x", memory.readbyte(0x0748)) .. " I2: " .. string.format("x%x", memory.readbyte(0x0750)) ..
+        -- "NT1: " .. string.format("x%x", memory.readbyte(0x074B)) .. " NT2: " .. string.format("x%x", memory.readbyte(0x0753)) .. " XY1: " ..
+        -- string.format("x%x", memory.readbyte(0x0749)) .. "," .. string.format("x%x", memory.readbyte(0x074A)));
+        -- gui.text(1, 214, " XY2: " .. string.format("x%x", memory.readbyte(0x0751)) ..
+        -- "," .. string.format("x%x", memory.readbyte(0x0752)) .. " " .. tostring(itemsToSync) ..
+        -- " samus.table: " .. memory.readbyte(0x030c));
 
         --  FOR DEBUG ONLY:  Full equipment and missiles
         -- memory.writebyte(0x6878, 0xff);
@@ -82,5 +99,9 @@ return {
     whichGame = whichGame,
     items = itemsToSync,
     ZeldaCache = ZeldaCache,
-    MetroidCache = MetroidCache
+    MetroidCache = MetroidCache,
+    HyruleProgress = HyruleProgress,
+    ZebesProgress = ZebesProgress,
+    IsSyncPortalDisabled = IsSyncPortalDisabled,
+    DisableSyncPortal = DisableSyncPortal
 };
