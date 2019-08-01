@@ -91,6 +91,8 @@ local function z1m1()
         local mode2 = memory.readbyte(0x001e);
 
         metroidutils.process_game(itemsToSync);
+    else --invalid game mode
+        gameMode = 2;
     end;
 end;
 

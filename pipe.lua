@@ -148,6 +148,7 @@ end
 
 function Pipe:send(s)
 	if pipeDebug then print("SEND: " .. s) end
+	-- and (s:sub(1, #"PONG") ~= "PONG")
 
 	local res, err = self.server:send(s .. "\r\n")
 	if not res then
@@ -229,7 +230,7 @@ function IrcPipe:handle(s)
 	local cmd, args = splits[1], splits[2]
 
 	if cmd == "PING" then -- On "PING :msg" respond with "PONG :msg"
-		if pipeDebug then print("Handling ping") end
+		-- if pipeDebug then print("Handling ping") end
 
 		self:send("PONG " .. args)
 
@@ -245,8 +246,11 @@ function IrcPipe:handle(s)
 		else
 			local partnerlen = #self.data.partner
 
+			-- if pipeDebug then print("Searching data: " .. tostring(splits)) end
+
 			if source:sub(1,partnerlen) == self.data.partner and source:sub(partnerlen+1, partnerlen+1) == "!" then
 				local splits2 = stringx.split(args, nil, 3)
+
 				if splits2[1] == "PRIVMSG" and splits2[2] == self.data.nick and splits2[3]:sub(1,1) == ":" then -- This is a message from the partner nick
 					local msg = splits2[3]:sub(2)
 					
@@ -291,6 +295,7 @@ function IrcPipe:handle(s)
 			elseif self.state == IrcState.searching and source == self.data.server then
 				local splits2 = stringx.split(args, nil, 2)
 				local msg = tonumber(splits2[1])
+
 				if msg and msg >= 311 and msg <= 317 then -- This is a whois response
 					if pipeDebug then print("Whois response") end
 
@@ -345,4 +350,3 @@ function Driver:childWake() end
 function Driver:childTick() end
 function Driver:handleTable(t) end
 function Driver:handleFailure(s, err) end
--- function Driver:z1m1Action() end
