@@ -2,4 +2,7 @@ quickstarts/z1m1-Andypro1-Andypro2.lua
 quickstarts/z1m1-Andypro1-Legbuh.lua
 quickstarts/z1m1-Andypro2-Andypro1.lua
 quickstarts/z1m1-Legbuh-Andypro1.lua
+quickstarts/ap1.lua
+quickstarts/ap2.lua
 *.wch
+*.classpath
