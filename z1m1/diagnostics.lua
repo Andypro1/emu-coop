@@ -3,6 +3,7 @@ local zeldautils   = require "z1m1/zelda-utils"
 
 local itemsToSync    = {};
 local gameMode       = 0;
+local inNormalPlayMode = false;
 local ZeldaCache     = {};
 local HyruleProgress = {};
 local MetroidCache   = {};
@@ -50,6 +51,10 @@ local function whichGame()
     return gameMode;
 end;
 
+local function InNormalGameplayMode()
+    return inNormalPlayMode;
+end;
+
 local function IsSyncPortalDisabled()
     return syncPortalDisabled;
 end;
@@ -64,41 +69,28 @@ local function z1m1()
 
     if(gameCheck == 0xa9) then -- Legend of Zelda
         gameMode = 0;
-        -- gui.text(5, 224, "Game: " .. "LoZ", null, null, "bottomright");
 
-        --  FOR DEBUG ONLY: Max life, rupees, bombs, keys at all times for testing
-        -- memory.writebyte(0x0658, 0xff);
-        -- memory.writebyte(0x066d, 0xff);
-        -- memory.writebyte(0x066e, 0xff);
-        -- memory.writebyte(0x066f, 0xff);
-
-        zeldautils.process_game(itemsToSync);
+        --  Process zelda gameplay for items.
+        --  Check return value for normal gameplay to report to consuming client whether
+        --  it's safe to take action on memory change callbacks, etc.
+        inNormalPlayMode = zeldautils.process_game(itemsToSync);
     elseif(gameCheck == 0x03) then -- Metroid
         gameMode = 1;
-        -- gui.text(1, 204, "I1: " .. string.format("x%x", memory.readbyte(0x0748)) .. " I2: " .. string.format("x%x", memory.readbyte(0x0750)) ..
-        -- "NT1: " .. string.format("x%x", memory.readbyte(0x074B)) .. " NT2: " .. string.format("x%x", memory.readbyte(0x0753)) .. " XY1: " ..
-        -- string.format("x%x", memory.readbyte(0x0749)) .. "," .. string.format("x%x", memory.readbyte(0x074A)));
-        -- gui.text(1, 214, " XY2: " .. string.format("x%x", memory.readbyte(0x0751)) ..
-        -- "," .. string.format("x%x", memory.readbyte(0x0752)) .. " " .. tostring(itemsToSync) ..
-        -- " samus.table: " .. memory.readbyte(0x030c));
 
-        --  FOR DEBUG ONLY:  Full equipment and missiles
-        -- memory.writebyte(0x6878, 0xff);
-        -- memory.writebyte(0x6879, 0xff);
-        -- memory.writebyte(0x687a, 0xff);
-
-        --  Metroid item detection testing:
-        local mode2 = memory.readbyte(0x001e);
-
-        metroidutils.process_game(itemsToSync);
+        --  Process metroid gameplay for items.
+        --  Check return value for normal gameplay to report to consuming client whether
+        --  it's safe to take action on memory change callbacks, etc.
+        inNormalPlayMode = metroidutils.process_game(itemsToSync);
     else --invalid game mode
         gameMode = 2;
+        inNormalPlayMode = false;
     end;
 end;
 
 return {
     z1m1 = z1m1,
     whichGame = whichGame,
+    InNormalGameplayMode = InNormalGameplayMode,
     items = itemsToSync,
     ZeldaCache = ZeldaCache,
     MetroidCache = MetroidCache,

@@ -245,9 +245,11 @@ function GameDriver:childWake()
 					if (record ~= nil) and (z1m1Driver.IsSyncPortalDisabled() == false)
 						and (record.gameMode ~= nil) then
 						if record.gameMode == z1m1Driver.whichGame() then
-							if driverDebug then print("cb: " .. tostring(record.gameMode) .. ", " .. z1m1Driver.whichGame()) end
-	
-							self:caughtWrite(checkAddr, b, record, size);
+							if z1m1Driver.InNormalGameplayMode() then
+								-- if driverDebug then print("cb: " .. tostring(record.gameMode) .. ", " .. z1m1Driver.whichGame()) end
+		
+								self:caughtWrite(checkAddr, b, record, size);
+							end;
 						end;
 					end
 				end

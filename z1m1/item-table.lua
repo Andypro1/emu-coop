@@ -83,8 +83,8 @@ itemTable[0x4B] = {desc = "an energy tank", game = 1, addr = 0x6877, kind = "add
 				   more = { addr = 0x0107, kind = "add", toAdd = 0x10 } };
 itemTable[0x4C] = {desc = "a missile capacity upgrade", game = 1, addr = 0x687a, kind = "add", toAdd = 5,
 				   more = { addr = 0x6879, kind = "add", toAdd = 5 } };
--- itemTable[0x4D] = {desc = "kraid's totem", game = 1, addr = 0x687b, value = 0x82, kind = "high" };
--- itemTable[0x4E] = {desc = "ridley's totem", game = 1, addr = 0x687c, value = 0x82, kind = "high" };
+itemTable[0x4D] = {desc = "kraid's totem", game = 1, addr = 0x687b, value = 0x82, kind = "high" };
+itemTable[0x4E] = {desc = "ridley's totem", game = 1, addr = 0x687c, value = 0x82, kind = "high" };
 itemTable[0x4F] = {desc = "the kraid totem compass", game = 1, addr = 0x0000, bits = 0xff };
 itemTable[0x50] = {desc = "the ridley totem compass", game = 1, addr = 0x0000, bits = 0xff };
 itemTable[0x51] = {desc = "the brinstar map", game = 1, addr = 0x0000, bits = 0xff };

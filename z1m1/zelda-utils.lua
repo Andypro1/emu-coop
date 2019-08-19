@@ -324,7 +324,7 @@ local function process_playing(itemsToSync)
         cur_triforce = true;
     else
 		-- Instead of analyzing an invalid state, just return
-		return;
+		return false;
     end;
 
 	if (cur_level == 0) then
@@ -475,6 +475,8 @@ local function process_playing(itemsToSync)
 	old_item_x    = cur_item_x
 
 	counted_death = false
+
+	return true;
 end;
 
 

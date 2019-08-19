@@ -85,21 +85,27 @@ local function process_game(itemsToSync)
 	local load_room_x  = memory.readbyte(0x0050)
 	local door_status  = memory.readbyte(0x0056)
 	local samus        = read_samus_state()
+	local inNormalPlay = false;
 
 	-- read secondary mode byte
 	local mode2 = memory.readbyte(0x001E)
+
+	if mode2 == 0x05 then
+		inNormalPlay = false;
+	end;
 
 	-- 0x08 -> starting / fading in 
 	if (mode2 == 0x08) then
 		last_samus_room_x = nil
 		last_samus_room_y = nil
 
-		just_spawned = true
+		just_spawned = true;
+		inNormalPlay = false;
 	end
 
 	-- 0x03 -> normal play mode
 	if (mode2 == 0x03) then
-		local new_room_loaded = false
+		local new_room_loaded = false;
 		handled_pickup = false;  --  Set this to false in normal gameplay to prepare
 								 --  for the next item pickup state
 		local area_num = memory.readbyte(0x0074) % 0x10
@@ -212,7 +218,7 @@ local function process_game(itemsToSync)
 			curItem = nil;
 		end
 
-		--gui.text(5, 20, tostring(curItem) .. " " .. item_y .. "," .. item_x);
+		inNormalPlay = true;
 	end
 
 	-- 0x09 -> picking up item
@@ -231,9 +237,13 @@ local function process_game(itemsToSync)
 				handled_pickup           = true
 			end;
 		end;
-	end
+
+		inNormalPlay = true;
+	end;
 
 	counted_death = false;
+
+	return inNormalPlay;
 end
 
 
