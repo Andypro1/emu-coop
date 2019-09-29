@@ -36,7 +36,15 @@ end
 -- 0x04 bottom key door unlocked
 -- 0x02 left key door unlocked
 -- 0x01 right key door unlocked
-for i = 0x06ff, 0x07fe do
+for i = 0x06ff, 0x07c0 do
+	spec.sync[i] = {kind="bitOr", mask=0x3f, gameMode = 0}; -- all but enemy kills? Play around with different masks maybe.
+end
+
+--spec.sync[0x07c1] = { kind="bitOr", mask=0x6f, gameMode = 0};  --  Do NOT sync the item in Ganon's room
+																 --  uncomment to try syncing room and Ganon
+																 --  death state without syncing item state.
+
+for i = 0x07c2, 0x07fe do
 	spec.sync[i] = {kind="bitOr", mask=0x3f, gameMode = 0}; -- all but enemy kills? Play around with different masks maybe.
 end
 

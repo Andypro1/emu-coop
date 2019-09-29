@@ -14,7 +14,7 @@ itemTable[0xA] = {desc = "the bow", game = 0, addr = 0x065a, kind = "add", toAdd
 itemTable[0xB] = {desc = "the magical key", game = 0, addr = 0x0664, kind = "add", toAdd = 1 };
 itemTable[0xC] = {desc = "the raft", game = 0, addr = 0x0660, kind = "add", toAdd = 1 };
 itemTable[0xD] = {desc = "the stepladder", game = 0, addr = 0x0663, kind = "add", toAdd = 1 };
-itemTable[0xE] = {desc = "the triforce of power", game = 0, addr = 0x0000, bits = 0xff };
+-- itemTable[0xE] = {desc = "the triforce of power", game = 0, addr = 0x0000, bits = 0xff };
 itemTable[0xF] = {desc = "a blue rupee", game = 0, addr = 0x067d, kind = "add", toAdd = 5 };
 itemTable[0x10] = {desc = "the magical rod", game = 0, addr = 0x065f, kind = "add", toAdd = 1 };
 itemTable[0x11] = {desc = "the book", game = 0, addr = 0x0661, kind = "add", toAdd = 1 };
